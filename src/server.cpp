@@ -67,16 +67,11 @@ int main(int argc, char **argv) {
   int client = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
   std::cout << "Client connected\n to " << client << "\n";
 
-  const char* message = 
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: application/json\r\n"
-      "Access-Control-Allow-Origin: *\r\n\r\n"
-      "[{\"name\":\"John\"},{\"name\":\"Jane\"}]";
-  send(client, message, strlen(message) + 1, 0);
+  std::string message = "HTTP/1.1 200 OK\r\n";
+  send(client, message.c_str(), message.length() + 1, 0);
 
   std::cout << "Message sent!\n";
-
-  close(client);
+  
   close(server_fd);
 
   return 0;
