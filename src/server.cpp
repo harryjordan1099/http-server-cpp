@@ -18,6 +18,11 @@ int main(int argc, char **argv) {
 
   // Uncomment this block to pass the first stage
   
+  /* Creating a socket descripter to do socket stuff with
+  domain - describes the socket you want (IPv4)
+  type - Controls if you want a stream socket or a datagram socket
+  protocol - Tells which protocol you want to use, (set to 0 as can infer from SOCK_STREAM)
+  */
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
    std::cerr << "Failed to create server socket\n";
@@ -33,8 +38,14 @@ int main(int argc, char **argv) {
   }
   
   struct sockaddr_in server_addr;
+
+  // Address family, allows you to connect to only addresses in that family (IPv4)
   server_addr.sin_family = AF_INET;
+
+  // Listens to all ip addresses asigned to the host machine
   server_addr.sin_addr.s_addr = INADDR_ANY;
+
+  // host to network order conversion. Different machines use different byte orders
   server_addr.sin_port = htons(4221);
   
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
@@ -53,9 +64,19 @@ int main(int argc, char **argv) {
   
   std::cout << "Waiting for a client to connect...\n";
   
-  accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  std::cout << "Client connected\n";
-  
+  int client = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+  std::cout << "Client connected\n to " << client << "\n";
+
+  const char* message = 
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: application/json\r\n"
+      "Access-Control-Allow-Origin: *\r\n\r\n"
+      "[{\"name\":\"John\"},{\"name\":\"Jane\"}]";
+  send(client, message, strlen(message) + 1, 0);
+
+  std::cout << "Message sent!\n";
+
+  close(client);
   close(server_fd);
 
   return 0;
