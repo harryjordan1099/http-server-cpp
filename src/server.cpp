@@ -1,4 +1,5 @@
 #include <iostream>
+#include <regex>
 #include <cstdlib>
 #include <string>
 #include <cstring>
@@ -7,16 +8,39 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sstream>
+
+void extract_url_path(const std::string& received_message, int client){
+  std::istringstream stream(received_message);
+
+  std::string request_line;
+  std::getline(stream, request_line);
+  std::cout << "Request Line: " << request_line << std::endl;
+  std::istringstream line_stream(request_line);
+  
+  std::string method, target, version;
+
+  // Using the string stream to parse each part
+  line_stream >> method >> target >> version;
+
+  if (method == "GET") {
+    if (target == "/") {
+      std::string message = "HTTP/1.1 200 OK\r\n\r\n";
+      send(client, message.c_str(), message.length() + 1, 0);
+    } else { 
+      std::string message = "HTTP/1.1 404 Not Found\r\n\r\n";
+      send(client, message.c_str(), message.length() + 1, 0);
+    }
+  } else {
+    std::string message = "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
+    send(client, message.c_str(), message.length() + 1, 0);
+  }
+}
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
-  
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
-  std::cout << "Logs from your program will appear here!\n";
-
-  // Uncomment this block to pass the first stage
   
   /* Creating a socket descripter to do socket stuff with
   domain - describes the socket you want (IPv4)
@@ -67,8 +91,12 @@ int main(int argc, char **argv) {
   int client = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
   std::cout << "Client connected\n to " << client << "\n";
 
-  std::string message = "HTTP/1.1 200 OK\r\n\r\n";
-  send(client, message.c_str(), message.length() + 1, 0);
+  // Receiving message
+  std::string received_message(256, '\0');
+  int bytes_received = recv(client, received_message.data(), received_message.size(), 0);
+
+  // 1. Find first line, if between GET and HTTP there is a /, send 200, else send 404
+  extract_url_path(received_message, client);
 
   std::cout << "Message sent!\n";
 
