@@ -23,10 +23,20 @@ void extract_url_path(const std::string& received_message, int client){
   // Using the string stream to parse each part
   line_stream >> method >> target >> version;
 
+  std::smatch match;
+  const std::regex pattern(R"(\/echo\/([^/]+))");
+
   if (method == "GET") {
     if (target == "/") {
       std::string message = "HTTP/1.1 200 OK\r\n\r\n";
       send(client, message.c_str(), message.length() + 1, 0);
+    } else if (std::regex_match(target, match, pattern)) {
+      std::cout << "Matched \n";
+      std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+      std::string format_string = std::to_string(match[1].length()) + "\r\n\r\n" + match[1].str(); 
+      message = message + format_string;
+      send(client, message.c_str(), message.length() + 1, 0);
+
     } else { 
       std::string message = "HTTP/1.1 404 Not Found\r\n\r\n";
       send(client, message.c_str(), message.length() + 1, 0);
