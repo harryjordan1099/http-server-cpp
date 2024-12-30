@@ -25,6 +25,11 @@ class HttpRequest {
         // Getters
         std::string getMethod() const { return method; }
         std::string getPath() const { return path; }
+        std::string getVersion() const { return version; }
+        std::string getHeader(const std::string& key) const {
+          auto it = headers.find(key);
+          return it != headers.end() ? it->second : "";
+        }
     private:
         std::string method;
         std::string path;
@@ -54,8 +59,8 @@ class HttpRequest {
                     std::string key = line.substr(0, colonPos);
                     std::string value = line.substr(colonPos + 1);
 
-                    value.erase(0, value.find_first_not_of(' '));
-                    value.erase(value.find_last_not_of(' ') + 1);
+                    value.erase(0, value.find_first_not_of(" \r"));
+                    value.erase(value.find_last_not_of(" \r") + 1);
                     headers[key] = value;
 
 
@@ -75,7 +80,6 @@ class HttpRequest {
 
 };
 
-
 void parse_message(const std::string& received_message, int client){
 
   HttpRequest request(received_message);
@@ -85,26 +89,36 @@ void parse_message(const std::string& received_message, int client){
   std::smatch match;
   const std::regex echo_pattern(R"(\/echo\/([^/]+))");
 
+  std::string header_user_agent = request.getHeader("User-Agent");
+  std::cout << header_user_agent[header_user_agent.length()-2] << "\n";
+
+
   if (method == "GET") {
     // Parse get method and echo method
     if (path == "/") {
       std::string message = "HTTP/1.1 200 OK\r\n\r\n";
-      send(client, message.c_str(), message.length() + 1, 0);
+      send(client, message.c_str(), message.length(), 0);
       
     } else if (std::regex_match(path, match, echo_pattern)) {
-      std::cout << "Matched \n";
       std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
       std::string format_string = std::to_string(match[1].length()) + "\r\n\r\n" + match[1].str(); 
       message = message + format_string;
-      send(client, message.c_str(), message.length() + 1, 0);
+      send(client, message.c_str(), message.length(), 0);
+
+    } else if (path == "/user-agent") {
+      std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+      std::string format_string = std::to_string(header_user_agent.length()) + "\r\n\r\n" + header_user_agent;
+      message = message + format_string;
+      std::cout << message << "\n";
+      send(client, message.c_str(), message.length(), 0);
 
     } else { 
       std::string message = "HTTP/1.1 404 Not Found\r\n\r\n";
-      send(client, message.c_str(), message.length() + 1, 0);
+      send(client, message.c_str(), message.length(), 0);
     }
   } else {
     std::string message = "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
-    send(client, message.c_str(), message.length() + 1, 0);
+    send(client, message.c_str(), message.length(), 0);
   }
 }
 
