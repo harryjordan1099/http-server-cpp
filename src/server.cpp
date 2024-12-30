@@ -80,7 +80,7 @@ class HttpRequest {
 
 };
 
-void parse_message(const std::string& received_message, int client){
+void send_response(const std::string& received_message, int client){
 
   HttpRequest request(received_message);
   std::string method = request.getMethod();
@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
   int bytes_received = recv(client, received_message.data(), received_message.size(), 0);
 
   // 1. Find first line, if between GET and HTTP there is a /, send 200, else send 404
-  parse_message(received_message, client);
+  send_response(received_message, client);
 
   std::cout << "Message sent!\n";
 
