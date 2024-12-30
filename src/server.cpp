@@ -10,27 +10,88 @@
 #include <netdb.h>
 #include <sstream>
 
-void extract_url_path(const std::string& received_message, int client){
-  std::istringstream stream(received_message);
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <sstream>
 
-  std::string request_line;
-  std::getline(stream, request_line);
-  std::cout << "Request Line: " << request_line << std::endl;
-  std::istringstream line_stream(request_line);
-  
-  std::string method, target, version;
+class HttpRequest {
+    public:
+        // Constructor
+        HttpRequest(const std::string& rawRequest) {
+            parse(rawRequest);
+        }
 
-  // Using the string stream to parse each part
-  line_stream >> method >> target >> version;
+        // Getters
+        std::string getMethod() const { return method; }
+        std::string getPath() const { return path; }
+    private:
+        std::string method;
+        std::string path;
+        std::string version;
+        std::unordered_map<std::string, std::string> headers;
+        std::string body;
+
+        // Parse the request
+        void parse(const std::string& raw_request) {
+            std::istringstream stream(raw_request);
+            std::string line;
+
+            // Parse the request line
+            if (std::getline(stream, line)) {
+                std::istringstream request_line_stream(line);
+                request_line_stream >> method >> path >> version;
+
+            }
+
+            // Parse headers
+            // Checking that we have succesffuly read a line and its not empty
+            while (std::getline(stream, line) && !line.empty()) {
+                size_t colonPos = line.find(':');
+                if (colonPos != std::string::npos) {
+
+                    // Capturing value
+                    std::string key = line.substr(0, colonPos);
+                    std::string value = line.substr(colonPos + 1);
+
+                    value.erase(0, value.find_first_not_of(' '));
+                    value.erase(value.find_last_not_of(' ') + 1);
+                    headers[key] = value;
+
+
+                }
+            }
+
+            // Parse body (if any)
+            std::ostringstream bodyStream;
+            while (std::getline(stream, line)) {
+                bodyStream << line << "\n";
+            } 
+            body = bodyStream.str();
+            if (!body.empty()) {
+                body.pop_back(); 
+            }
+        }
+
+};
+
+
+void parse_message(const std::string& received_message, int client){
+
+  HttpRequest request(received_message);
+  std::string method = request.getMethod();
+  std::string path = request.getPath();
 
   std::smatch match;
-  const std::regex pattern(R"(\/echo\/([^/]+))");
+  const std::regex echo_pattern(R"(\/echo\/([^/]+))");
 
   if (method == "GET") {
-    if (target == "/") {
+    // Parse get method and echo method
+    if (path == "/") {
       std::string message = "HTTP/1.1 200 OK\r\n\r\n";
       send(client, message.c_str(), message.length() + 1, 0);
-    } else if (std::regex_match(target, match, pattern)) {
+      
+    } else if (std::regex_match(path, match, echo_pattern)) {
       std::cout << "Matched \n";
       std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
       std::string format_string = std::to_string(match[1].length()) + "\r\n\r\n" + match[1].str(); 
@@ -46,6 +107,7 @@ void extract_url_path(const std::string& received_message, int client){
     send(client, message.c_str(), message.length() + 1, 0);
   }
 }
+
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
@@ -106,7 +168,7 @@ int main(int argc, char **argv) {
   int bytes_received = recv(client, received_message.data(), received_message.size(), 0);
 
   // 1. Find first line, if between GET and HTTP there is a /, send 200, else send 404
-  extract_url_path(received_message, client);
+  parse_message(received_message, client);
 
   std::cout << "Message sent!\n";
 
